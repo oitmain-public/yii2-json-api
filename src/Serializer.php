@@ -216,11 +216,14 @@ class Serializer extends Component
             }
             foreach ($relationship as $model) {
                 if ($model instanceof ResourceInterface) {
-                    $data[] = $this->serializeModel($model);
+                    $deduplicateKey = md5(serialize([$model->getType(), $model->getId()]));
+                    if (!isset($data[$deduplicateKey])) {
+                        $data[$deduplicateKey] = $this->serializeModel($model);
+                    }
                 }
             }
         }
-        return $data;
+        return array_values($data);
     }
 
     /**
