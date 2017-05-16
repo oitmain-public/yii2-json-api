@@ -5,7 +5,6 @@
 
 namespace tuyakhov\jsonapi\actions;
 
-use tuyakhov\jsonapi\ResourceIdentifierInterface;
 use Yii;
 use yii\base\Model;
 use yii\db\ActiveRecord;
@@ -23,16 +22,13 @@ class UpdateAction extends Action
      * Updates an existing resource.
      * @param string $id the primary key of the model.
      * @return \yii\db\ActiveRecordInterface the model being updated
+     * @throws BadRequestHttpException
      * @throws ServerErrorHttpException if there is any error when updating the model
      */
     public function run($id)
     {
         /* @var $model ActiveRecord */
         $model = $this->findModel($id);
-
-        if (!$model instanceof ResourceIdentifierInterface) {
-            throw new ServerErrorHttpException('Model does not implement ResourceIdentifierInterface');
-        }
 
         if ($this->checkAccess) {
             call_user_func($this->checkAccess, $this->id, $model);

@@ -5,9 +5,11 @@
 
 namespace tuyakhov\jsonapi\actions;
 
+use tuyakhov\jsonapi\ResourceIdentifierInterface;
 use Yii;
 use yii\base\Model;
 use yii\helpers\Url;
+use yii\web\BadRequestHttpException;
 use yii\web\ServerErrorHttpException;
 
 class CreateAction extends Action
@@ -31,6 +33,7 @@ class CreateAction extends Action
     /**
      * Creates a new resource.
      * @return \yii\db\ActiveRecordInterface the model newly created
+     * @throws BadRequestHttpException
      * @throws ServerErrorHttpException if there is any error when creating the model
      */
     public function run()
@@ -45,7 +48,9 @@ class CreateAction extends Action
         ]);
 
         $request = Yii::$app->getRequest();
-        $model->load($request->getBodyParams());
+        if (!$model->load($request->getBodyParams())) {
+            throw new BadRequestHttpException('Expecting object type ' . $model->getType());
+        }
         if ($model->save()) {
             $this->linkRelationships($model, $request->getBodyParam('relationships', []));
             $response = Yii::$app->getResponse();
