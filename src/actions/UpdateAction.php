@@ -5,9 +5,11 @@
 
 namespace tuyakhov\jsonapi\actions;
 
+use tuyakhov\jsonapi\ResourceIdentifierInterface;
+use Yii;
 use yii\base\Model;
 use yii\db\ActiveRecord;
-use Yii;
+use yii\web\BadRequestHttpException;
 use yii\web\ServerErrorHttpException;
 
 class UpdateAction extends Action
@@ -28,13 +30,19 @@ class UpdateAction extends Action
         /* @var $model ActiveRecord */
         $model = $this->findModel($id);
 
+        if (!$model instanceof ResourceIdentifierInterface) {
+            throw new ServerErrorHttpException('Model does not implement ResourceIdentifierInterface');
+        }
+
         if ($this->checkAccess) {
             call_user_func($this->checkAccess, $this->id, $model);
         }
 
         $request = Yii::$app->getRequest();
         $model->scenario = $this->scenario;
-        $model->load($request->getBodyParams());
+        if (!$model->load($request->getBodyParams())) {
+            throw new BadRequestHttpException('Expecting object type ' . $model->getType());
+        }
         if ($model->save() === false && !$model->hasErrors()) {
             throw new ServerErrorHttpException('Failed to update the object for unknown reason.');
         }
