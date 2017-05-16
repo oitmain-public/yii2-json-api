@@ -5,10 +5,12 @@
 
 namespace tuyakhov\jsonapi\actions;
 
+use tuyakhov\jsonapi\ResourceIdentifierInterface;
 use tuyakhov\jsonapi\ResourceInterface;
 use yii\db\ActiveRecordInterface;
 use yii\db\BaseActiveRecord;
 use yii\helpers\ArrayHelper;
+use yii\web\ServerErrorHttpException;
 
 class Action extends \yii\rest\Action
 {
@@ -22,6 +24,20 @@ class Action extends \yii\rest\Action
      * @var bool Weather allow to do a full replacement of a to-many relationship
      */
     public $allowFullReplacement = true;
+
+    /**
+     * @param string $id
+     * @return void|ActiveRecordInterface
+     * @throws ServerErrorHttpException
+     */
+    public function findModel($id)
+    {
+        $model = parent::findModel($id);
+        if (!$model instanceof ResourceIdentifierInterface) {
+            throw new ServerErrorHttpException('Model does not implement ResourceIdentifierInterface');
+        }
+        return $model;
+    }
 
     /**
      * Links the relationships with primary model.
