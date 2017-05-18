@@ -46,7 +46,9 @@ class UpdateRelationshipAction extends Action
             // $this->linkRelationships($model, [$name => Yii::$app->getRequest()->getBodyParams()]);
         }
 
+        $name = str_replace('-', '_', $name);
         $relationships = $model->getResourceRelationships();
+
         if (!isset($relationships[$name])) {
             throw new NotFoundHttpException($name . ' is not related to ' . $model->getType());
         }
