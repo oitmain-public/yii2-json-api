@@ -5,6 +5,7 @@
 
 namespace tuyakhov\jsonapi\actions;
 
+use tuyakhov\jsonapi\Inflector;
 use tuyakhov\jsonapi\ResourceRelationship;
 use Yii;
 use yii\data\ActiveDataProvider;
@@ -40,25 +41,89 @@ class UpdateRelationshipAction extends Action
             call_user_func($this->checkAccess, $this->id, $model, $name);
         }
 
-        $request = Yii::$app->getRequest();
-        if ($request->getMethod() != 'GET') {
-            throw new MethodNotAllowedHttpException($request->getMethod() . ' is not supported yet');
-            // $this->linkRelationships($model, [$name => Yii::$app->getRequest()->getBodyParams()]);
-        }
-
+        $formName = Inflector::type2form($name);
         $name = str_replace('-', '_', $name);
-        $relationships = $model->getResourceRelationships();
 
-        if (!isset($relationships[$name])) {
+        $related = $model->getRelation($name, false);
+        if (!$related) {
             throw new NotFoundHttpException($name . ' is not related to ' . $model->getType());
         }
+        $relatedModel = new $related->modelClass();
 
-        $resourceRelationship = new ResourceRelationship();
-        $resourceRelationship->relationshipName = $name;
-        $resourceRelationship->relationshipItems = $relationships[$name];
-        $resourceRelationship->model = $model;
+        $request = Yii::$app->getRequest();
+        switch ($request->getMethod()) {
+            case 'PATCH':
+                $ids = $this->getIds($formName);
+                $items = $relatedModel->findAll($ids);
+                if (count($items) != count($ids)) {
+                    $missingIds = [];
+                    foreach ($items as $item) {
+                        if (!isset($ids[$item->getId()])) {
+                            $missingIds[] = $item->getId();
+                        }
+                    }
+                    throw new BadRequestHttpException('Invalid ID ' . implode(',', $missingIds));
+                }
 
-        return $resourceRelationship;
+                // Unlink previous relationship
+                $model->unlinkAll($name);
 
+                // Reload after unlinking
+                $items = $relatedModel->findAll($ids);
+
+                foreach ($items as $item) {
+                    $model->link($name, $item);
+                }
+                Yii::$app->getResponse()->setStatusCode(204);
+                break;
+            case 'POST':
+                $ids = $this->getIds($formName);
+                $items = $relatedModel->findAll($ids);
+                foreach ($items as $item) {
+                    $model->link($name, $item);
+                }
+                Yii::$app->getResponse()->setStatusCode(204);
+                break;
+            case 'DELETE':
+                $ids = $this->getIds($formName);
+                foreach ($related->all() as $item) {
+                    if (in_array($item->getId(), $ids)) {
+                        $model->unlink($name, $item);
+                    }
+                }
+                Yii::$app->getResponse()->setStatusCode(204);
+                break;
+            case 'GET':
+                $resourceRelationship = new ResourceRelationship();
+                $resourceRelationship->relationshipName = $name;
+                $resourceRelationship->relationshipItems = $related->all();
+                $resourceRelationship->model = $model;
+                return $resourceRelationship;
+                break;
+            default:
+                throw new MethodNotAllowedHttpException($request->getMethod() . ' is not supported yet');
+                break;
+        }
+    }
+
+    protected function getIds($formName)
+    {
+        $params = Yii::$app->getRequest()->getBodyParams();
+        $ids = [];
+        foreach ($params as $index => $relObjects) {
+            if ($index != $formName) {
+                throw new BadRequestHttpException('Type mismatch');
+            }
+            if (!is_array($relObjects)) {
+                $relObjects = [$relObjects];
+            }
+            foreach ($relObjects as $relObject) {
+                if (!isset($relObject['id'])) {
+                    throw new BadRequestHttpException('Missing id');
+                }
+                $ids[] = $relObject['id'];
+            }
+        }
+        return $ids;
     }
 }
