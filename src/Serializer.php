@@ -92,6 +92,8 @@ class Serializer extends Component
     {
         if ($data instanceof Model && $data->hasErrors()) {
             return $this->serializeModelErrors($data);
+        } elseif ($data instanceof ResourceRelationshipInterface) {
+            return $this->serializeResourceRelationship($data);
         } elseif ($data instanceof ResourceInterface) {
             return $this->serializeResource($data);
         } elseif ($data instanceof DataProviderInterface) {
@@ -176,6 +178,48 @@ class Serializer extends Component
     }
 
     /**
+     * @param ResourceRelationshipInterface $resource
+     * @return array
+     */
+    protected function serializeResourceRelationship(ResourceRelationshipInterface $resource)
+    {
+        $model = $resource->getModel();
+        $items = $resource->getRelationshipItems();
+        $name  = $resource->getRelationshipName();
+
+        $relationship = [];
+        $data = [];
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                if ($item instanceof ResourceIdentifierInterface) {
+                    $relationship[] = $this->serializeIdentifier($item);
+                }
+            }
+        } elseif ($items instanceof ResourceIdentifierInterface) {
+            $relationship = $this->serializeIdentifier($items);
+        }
+        if (!empty($relationship)) {
+            $memberName = $this->prepareMemberNames([$name]);
+            $memberName = reset($memberName);
+
+            $data['data'] = $relationship;
+
+            if ($model instanceof LinksInterface) {
+                $links = $model->getRelationshipLinks($memberName);
+                if (!empty($links)) {
+                    $data['links'] = Link::serialize($links);
+                }
+            }
+        }
+
+        if ($this->request->getIsHead()) {
+            return null;
+        } else {
+            return $data;
+        }
+    }
+
+    /**
      * Serialize resource identifier object and make type juggling
      * @link http://jsonapi.org/format/#document-resource-object-identification
      * @param ResourceIdentifierInterface $identifier
@@ -193,7 +237,7 @@ class Serializer extends Component
             if ($key === 'type' && $this->pluralize) {
                 $value = Inflector::pluralize($value);
             }
-            $result[$key] = (string) $value;
+            $result[$key] = (string)$value;
         }
         return $result;
     }
@@ -310,7 +354,8 @@ class Serializer extends Component
             $fields = [];
         }
         foreach ($fields as $key => $field) {
-            $fields[$key] = array_map($this->formatMemberName, preg_split('/\s*,\s*/', $field, -1, PREG_SPLIT_NO_EMPTY));
+            $fields[$key] = array_map($this->formatMemberName,
+                preg_split('/\s*,\s*/', $field, -1, PREG_SPLIT_NO_EMPTY));
         }
         return $fields;
     }
@@ -318,7 +363,8 @@ class Serializer extends Component
     protected function getIncluded()
     {
         $include = $this->request->get($this->expandParam);
-        return is_string($include) ? array_map($this->formatMemberName, preg_split('/\s*,\s*/', $include, -1, PREG_SPLIT_NO_EMPTY)) : [];
+        return is_string($include) ? array_map($this->formatMemberName,
+            preg_split('/\s*,\s*/', $include, -1, PREG_SPLIT_NO_EMPTY)) : [];
     }
 
 

@@ -5,12 +5,13 @@
 
 namespace tuyakhov\jsonapi\actions;
 
-use tuyakhov\jsonapi\ResourceInterface;
+use tuyakhov\jsonapi\ResourceRelationship;
+use Yii;
 use yii\data\ActiveDataProvider;
 use yii\db\BaseActiveRecord;
 use yii\web\BadRequestHttpException;
+use yii\web\MethodNotAllowedHttpException;
 use yii\web\NotFoundHttpException;
-use Yii;
 
 /**
  * UpdateRelationshipAction implements the API endpoint for updating relationships.
@@ -39,14 +40,23 @@ class UpdateRelationshipAction extends Action
             call_user_func($this->checkAccess, $this->id, $model, $name);
         }
 
-        $this->linkRelationships($model, [$name => Yii::$app->getRequest()->getBodyParams()]);
-
-        if ($related->multiple) {
-            return new ActiveDataProvider([
-                'query' => $related
-            ]);
-        } else {
-            return $related->one();
+        $request = Yii::$app->getRequest();
+        if ($request->getMethod() != 'GET') {
+            throw new MethodNotAllowedHttpException($request->getMethod() . ' is not supported yet');
+            // $this->linkRelationships($model, [$name => Yii::$app->getRequest()->getBodyParams()]);
         }
+
+        $relationships = $model->getResourceRelationships();
+        if (!isset($relationships[$name])) {
+            throw new NotFoundHttpException($name . ' is not related to ' . $model->getType());
+        }
+
+        $resourceRelationship = new ResourceRelationship();
+        $resourceRelationship->relationshipName = $name;
+        $resourceRelationship->relationshipItems = $relationships[$name];
+        $resourceRelationship->model = $model;
+
+        return $resourceRelationship;
+
     }
 }
