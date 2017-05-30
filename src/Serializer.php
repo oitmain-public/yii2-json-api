@@ -124,26 +124,28 @@ class Serializer extends Component
         $relationships = $model->getResourceRelationships();
         if (!empty($relationships)) {
             foreach ($relationships as $name => $items) {
-                $relationship = [];
-                if (is_array($items)) {
-                    foreach ($items as $item) {
-                        if ($item instanceof ResourceIdentifierInterface) {
-                            $relationship[] = $this->serializeIdentifier($item);
+                if (!$fields || in_array($name, $fields)) {
+                    $relationship = [];
+                    if (is_array($items)) {
+                        foreach ($items as $item) {
+                            if ($item instanceof ResourceIdentifierInterface) {
+                                $relationship[] = $this->serializeIdentifier($item);
+                            }
                         }
+                    } elseif ($items instanceof ResourceIdentifierInterface) {
+                        $relationship = $this->serializeIdentifier($items);
                     }
-                } elseif ($items instanceof ResourceIdentifierInterface) {
-                    $relationship = $this->serializeIdentifier($items);
-                }
-                if (!empty($relationship)) {
-                    $memberName = $this->prepareMemberNames([$name]);
-                    $memberName = reset($memberName);
-                    if (in_array($name, $included)) {
-                        $data['relationships'][$memberName]['data'] = $relationship;
-                    }
-                    if ($model instanceof LinksInterface) {
-                        $links = $model->getRelationshipLinks($memberName);
-                        if (!empty($links)) {
-                            $data['relationships'][$memberName]['links'] = Link::serialize($links);
+                    if (!empty($relationship)) {
+                        $memberName = $this->prepareMemberNames([$name]);
+                        $memberName = reset($memberName);
+                        if (in_array($name, $included)) {
+                            $data['relationships'][$memberName]['data'] = $relationship;
+                        }
+                        if ($model instanceof LinksInterface) {
+                            $links = $model->getRelationshipLinks($memberName);
+                            if (!empty($links)) {
+                                $data['relationships'][$memberName]['links'] = Link::serialize($links);
+                            }
                         }
                     }
                 }
@@ -185,7 +187,7 @@ class Serializer extends Component
     {
         $model = $resource->getModel();
         $items = $resource->getRelationshipItems();
-        $name  = $resource->getRelationshipName();
+        $name = $resource->getRelationshipName();
 
         $relationship = [];
         $data = [];
@@ -237,7 +239,7 @@ class Serializer extends Component
             if ($key === 'type' && $this->pluralize) {
                 $value = Inflector::pluralize($value);
             }
-            $result[$key] = (string) $value;
+            $result[$key] = (string)$value;
         }
         return $result;
     }
@@ -354,7 +356,8 @@ class Serializer extends Component
             $fields = [];
         }
         foreach ($fields as $key => $field) {
-            $fields[$key] = array_map($this->formatMemberName, preg_split('/\s*,\s*/', $field, -1, PREG_SPLIT_NO_EMPTY));
+            $fields[$key] = array_map($this->formatMemberName,
+                preg_split('/\s*,\s*/', $field, -1, PREG_SPLIT_NO_EMPTY));
         }
         return $fields;
     }
@@ -362,7 +365,8 @@ class Serializer extends Component
     protected function getIncluded()
     {
         $include = $this->request->get($this->expandParam);
-        return is_string($include) ? array_map($this->formatMemberName, preg_split('/\s*,\s*/', $include, -1, PREG_SPLIT_NO_EMPTY)) : [];
+        return is_string($include) ? array_map($this->formatMemberName,
+            preg_split('/\s*,\s*/', $include, -1, PREG_SPLIT_NO_EMPTY)) : [];
     }
 
 
